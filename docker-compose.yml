@@ -1,0 +1,98 @@
+version: "3.8"
+
+services:
+  api1:
+    build:
+      context: ./shop_shop
+      dockerfile: Dockerfile
+    env_file: ./shop_shop/.env
+    ports:
+      - "4545:4545"
+    environment:
+      - MONGO_URL=mongodb://mongo-primary/mydatabase
+    depends_on:
+      - mongo-primary
+
+  api2:
+    build:
+      context: ./shop_shop_query
+      dockerfile: Dockerfile
+    env_file: ./shop_shop_query/.env
+    ports:
+      - "4546:4546"
+    environment:
+      - MONGO_URL=mongodb://mongo-secondary-1/mydatabase
+    depends_on:
+      - mongo-secondary-1
+  redis:
+    image: redis:7.2.4-alpine
+    container_name: redisMicro
+    volumes:
+      - redis:/data
+    restart: always
+    command: --port 6378
+    ports:
+      - "6380:6378"
+    expose:
+      - "6380"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100MB"
+        max-file: "3"
+
+  mongo-primary:
+    container_name: mongo-primary
+    image: mongo
+    ports:
+      - 27001:27017
+    command: mongod --replSet "rs0"
+    environment:
+      - MONGO_INITDB_REPLICASET=rs0
+    restart: always
+    volumes:
+      - ./mongodb/primary:/data/db
+    networks:
+      - mongo_replica
+
+  mongo-secondary-1:
+    container_name: mongo-secondary-1
+    image: mongo
+    ports:
+      - 27002:27017
+    command: mongod --replSet "rs0"
+    environment:
+      - MONGO_INITDB_REPLICASET=rs0
+    restart: always
+    volumes:
+      - ./mongodb/secondary1:/data/db
+    networks:
+      - mongo_replica
+
+  mongo-secondary-2:
+    container_name: mongo-secondary-2
+    image: mongo
+    ports:
+      - 27003:27017
+    command: mongod --replSet "rs0"
+    environment:
+      - MONGO_INITDB_REPLICASET=rs0
+    restart: always
+    volumes:
+      - ./mongodb/secondary2:/data/db
+    networks:
+      - mongo_replica
+  setup-rs:
+    image: "setup-rs"
+    build: ./setup
+    depends_on:
+      - mongo-primary
+
+networks:
+  mongo_replica:
+    driver: bridge
+volumes:
+  redis:
+  mongo-primary:
+  mongo-secondary-1:
+  mongo-secondary-2:
